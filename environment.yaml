@@ -1,0 +1,12 @@
+name: adlr
+  channels:
+    - conda-forge
+    - defaults
+  dependencies:
+    - python=3.7
+    - pandas=1.2.4
+    - matplotlib=3.4.1
+    - jupyterlab=3.0.14
+    - tensorflow-gpu=2.1
+    - pip:
+        - tensorflow-gpu==2.3.1
