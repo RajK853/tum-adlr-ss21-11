@@ -2,24 +2,39 @@
 This repository contains the project source code of our team ([@rajk853](https://github.com/rajk853), [@saif61](https://github.com/saif61)) for the TUM - Advanced Deep Learning for Robotics SS21 course.
 
 ## Objective
-As part of this project, we will investigate the ideas proposed by [Li and Malik, 2016](https://arxiv.org/abs/1606.01885) for an optimization based motion planning using RL. 
-
-## TODOs
-- Set up an optimizer for a simple robot
-  - Setups for a simple robot:
-    - [Gym Minigrid](https://github.com/maximecb/gym-minigrid): Minimalist OpenAI Gym grid environments for path planning. 
-  - Setups for the optimization algorithms: 
-    - `gradient descent`: [Adam - tensorflow](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/Adam)
-    - `momentum`: [SGD - tensorflow](https://www.tensorflow.org/api_docs/python/tf/keras/optimizers/SGD)
-    - `conjugate gradient`: [Tensorflow 2.4.1](https://www.tensorflow.org/api_docs/python/tf/linalg/experimental/conjugate_gradient), [Numpy](https://gist.github.com/glederrey/7fe6e03bbc85c81ed60f3585eea2e073), [Scipy](https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.linalg.cg.html)
-    - `L-BFGS`: [Tensorflow Probability](https://www.tensorflow.org/probability/api_docs/python/tfp/optimizer/lbfgs_minimize), [Scipy](https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html)
-- Implement [Guided Policy Search](https://github.com/cbfinn/gps) to guide the `autonomous optimizer` using RL
+In this project, we will investigate the Reinforcement Learning (RL) approach in the Neural Motion Planning (NMP) as proposed in [T. Jurgenson and A. Tamar, 2019](https://arxiv.org/abs/1906.00214). We will compare the results between the Supervised Learning (SL) and Reinforcement Learning approaches and tweak the expert demonstration trajectories used in the Supervised Learning setting in an attempt to produce results similar to that from the Reinforcement Learning setting 
 
 ## Setup
-...
+1. Install [Conda](https://docs.anaconda.com/anaconda/install/linux/)
+2. Clone this repository
+```shell
+git clone https://github.com/RajK853/tum-adlr-ss21-11.git .
+```
+3. Create and activate conda environment with following command  
+```shell
+cd tum-adlr-ss21-11
+conda env create -f environment.yaml
+conda activate adlr
+```
 
 ## Usage
-...
 
-## Materials
-- [Mathematical Optimizations](https://scipy-lectures.org/advanced/mathematical_optimization/)
+### Demo plot
+> Open this demo [![in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RajK853/tum-adlr-ss21-11/blob/main/notebook/Load_Data.ipynb).
+
+- Execute the given command where `${PATH_TO_DB_FILE}` is the location where the `.db` file is located
+```shell
+python demo_plot.py ${PATH_TO_DB_FILE}
+```
+
+## TODOs
+- Setups for the Supervised Learning methods
+  - Implement a `DenseNet` for the Image-to-Image path planning
+  - Implement another model for the Image-to-Points path planning
+- Setups for the Reinforcement Learning methods
+  - Create a goal-based Gym-compliant RL environment  
+  - Implement different variants of `Deep Deterministic Policy Gradient` (DDPG) algorithm
+    - DDPG
+    - DDPG+HER (Hindsight Experience Replay)
+    - DDPG-MP (Motion Planning)
+- Ideas to improve the Supervised Learning method results 
