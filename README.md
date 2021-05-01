@@ -20,7 +20,7 @@ conda activate adlr
 ## Usage
 
 ### Demo plot
-> Available as an [notebook](\notebook).
+> Available as an [notebook](\notebook\Demo_plot.ipynb).
 
 Execute the given command where `${PATH_TO_DB_FILE}` is the location of the `.db` file in your local machine.
 ```shell
