@@ -20,9 +20,9 @@ conda activate adlr
 ## Usage
 
 ### Demo plot
-> [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/RajK853/tum-adlr-ss21-11/blob/main/notebook/Load_Data.ipynb).
+> Available as an [notebook](\notebook).
 
-- Execute the given command where `${PATH_TO_DB_FILE}` is the location where the `.db` file is located in your local machine.
+Execute the given command where `${PATH_TO_DB_FILE}` is the location of the `.db` file in your local machine.
 ```shell
 python demo_plot.py ${PATH_TO_DB_FILE}
 ```
