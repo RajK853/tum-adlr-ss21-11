@@ -132,3 +132,5 @@ dmypy.json
 *.pdf
 *.db
 Introduction2OMP.key\
+events.out*
+plugins\
