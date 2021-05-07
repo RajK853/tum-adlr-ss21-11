@@ -4,7 +4,7 @@ from tensorflow.compat.v1.keras.layers import Input, Conv2D, Concatenate
 from layers import DenseBlock, TransitionBlock
 
 
-def get_denseNet(input_shape, num_db, num_channels=64, growth_rate=32, convs_per_db=3, **kwargs):
+def u_dense_net(input_shape, num_db, num_channels=64, growth_rate=32, convs_per_db=3, **kwargs):
     assert len(input_shape) == 3, f"Input shape must have 3 dimension! Received '{input_shape}'!"
     assert (input_shape[0] % 2 == 0) and (input_shape[1] % 2 == 0), f"Width and height of the image must be a even number! Received '{input_shape[:2]}'!"
     assert (num_db > 1) and (num_db % 2 == 1), f"Number of DenseBlocks must be an odd number more than 1! Received '{num_db}'!"
