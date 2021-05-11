@@ -28,6 +28,7 @@ python demo_plot.py ${PATH_TO_DB_FILE}
 ```
 
 ### Train U-DenseNet
+> Open as an [notebook](notebook/DenseNet.ipynb).
 - Set the database path environment variable `DB_PATH`:
   ```shell
   export DB_PATH=${PATH_TO_DB_FILE}
