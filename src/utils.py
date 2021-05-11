@@ -93,8 +93,11 @@ def exec_from_yaml(config_path, exec_func, title="Experiment", safe_load=True, s
                 print(f"# Skipped {exp_name}")
                 continue
             print(f"\n{i}. {title}: {exp_name}")
-            # Execute the exec_func function by unpacking the experiment's keyword-arguments
-            result = exec_func(**exp_kwargs)
-            result_dict[exp_name] = result
+            try:
+                # Execute the exec_func function by unpacking the experiment's keyword-arguments
+                result = exec_func(**exp_kwargs)
+                result_dict[exp_name] = result
+            except KeyboardInterrupt:
+                print("\n# Interrupted by the user!")
             i += 1
     return result_dict
