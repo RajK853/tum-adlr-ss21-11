@@ -70,6 +70,7 @@ From each model training session, following components are logged in the `result
 4. **model.png**: `PNG` image of the model architecture graph 
 
 ## TODOs
+- Setups to perform experiments in Google Colab + GCP Compute  
 - Setups for the Supervised Learning methods
   - Implement a `DenseNet` for the Image-to-Image path planning
   - Implement another model for the Image-to-Points path planning
