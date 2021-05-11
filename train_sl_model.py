@@ -9,7 +9,6 @@ from src import losses
 from src.models import u_dense_net
 from src.generators import DataGen
 from src.utils import exec_from_yaml
-from src.progressbar import ProgressBar
 from src.callbacks import ImageSaverCallback
 from src.load import get_values_sql, compressed2img, object2numeric_array
 
