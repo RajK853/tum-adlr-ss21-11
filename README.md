@@ -27,6 +27,47 @@ Execute the given command where `${PATH_TO_DB_FILE}` is the location of the `.db
 python demo_plot.py ${PATH_TO_DB_FILE}
 ```
 
+### Train U-DenseNet
+- Set the database path environment variable `DB_PATH`:
+```shell
+export DB_PATH=${PATH_TO_DB_FILE}
+```
+- Create a YAML config file (for eg `focal.yaml`) 
+```YAML
+Focal:
+  epochs: 30
+  log_dir: results
+  batch_size: 64
+  path_row_config:
+    train: [0, 3000000, 200]
+    validation: [3000000, 4000000, 100]
+    test:  [4000000, 4100000, 250]
+  data_config:
+    n_voxels: 64
+    n_dim: 2
+  model_config:
+    lr: 0.0005
+    input_shape: [64, 64, 2]
+    num_db: 3
+    convs_per_db: 2
+    growth_rate: 32
+    num_channels: 32
+  loss_config:
+    name: focal
+    gamma: 2
+    beta: 1.5
+```
+> Sample configuration files are available [here](/configs)
+- Execute the python script:
+```shell
+python train_sl_model.py focal.yaml
+```
+From each model training session, following components are logged in the `results`:
+1. **model.tf**: Trained model as `.tf` format
+2. **tb_logs**: Tensorboard log information
+3. **test_images**: Images with model predictions on the test data set
+4. **model.png**: `PNG` image of the model architecture graph 
+
 ## TODOs
 - Setups for the Supervised Learning methods
   - Implement a `DenseNet` for the Image-to-Image path planning
