@@ -4,7 +4,7 @@ CrossEntropy: &base_config
   batch_size: 64
   path_row_config:
     train: [0, 3000000, 200]
-    validation: [3000000, 4000000, 100]
+    validation: [3000000, 4000000, 200]
     test:  [4000000, 4100000, 250]
   data_config:
     n_voxels: 64
@@ -23,12 +23,12 @@ WeightedCrossEntropy:
   <<: *base_config
   loss_config:
     name: cross_entropy
-    beta: 2.0
+    beta: 0.5
     balanced: False
 
 BalancedCrossEntropy:
   <<: *base_config
   loss_config:
     name: cross_entropy
-    beta: 2.0
+    beta: 0.5
     balanced: True
