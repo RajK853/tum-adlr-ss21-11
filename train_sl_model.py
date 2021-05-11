@@ -14,7 +14,6 @@ from src.callbacks import ImageSaverCallback
 from src.load import get_values_sql, compressed2img, object2numeric_array
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 N_PATHS_PER_WORLD = 1000
 
