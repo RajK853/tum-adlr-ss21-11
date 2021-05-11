@@ -6,6 +6,7 @@ from contextlib import contextmanager
 
 
 _CMP = '_cmp'
+np.warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
 
 
 @contextmanager
