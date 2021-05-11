@@ -62,7 +62,7 @@ Focal:
 ```shell
 python train_sl_model.py focal.yaml
 ```
-From each model training session, following components are logged in the `results`:
+From each model training session, following components are logged in the `results` directory:
 1. **model.tf**: Trained model as `.tf` format
 2. **tb_logs**: Tensorboard log information
 3. **test_images**: Images with model predictions on the test data set
