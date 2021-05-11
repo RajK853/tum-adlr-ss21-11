@@ -134,3 +134,4 @@ dmypy.json
 Introduction2OMP.key\
 events.out*
 plugins\
+results\
