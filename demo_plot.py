@@ -25,7 +25,7 @@ def main(db_path):
     q_paths = q_paths.reshape(-1, n_waypoints, n_dim)
 
     nrows = min(5, len(path_rows))             # Only plot the first N graphs
-    _, axs = plt.subplots(nrows=nrows, ncols=5, figsize=(3*nrows, 15))
+    _, axs = plt.subplots(nrows=nrows, ncols=5, figsize=(3*nrows, 20))
     for i in range(nrows):
         world_i = path_rows[i]//n_paths_per_world
         axs[i, 0].imshow(obstacle_images[world_i].T, origin='lower', extent=extent, cmap='binary')
