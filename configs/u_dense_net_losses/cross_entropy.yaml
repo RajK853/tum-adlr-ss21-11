@@ -1,5 +1,5 @@
 CrossEntropy: &base_config
-  epochs: 1
+  epochs: 30
   log_dir: results
   batch_size: 64
   path_row_config:
