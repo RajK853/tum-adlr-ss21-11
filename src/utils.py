@@ -52,6 +52,17 @@ def load_yaml(file_path, safe_load=True):
         return load_func(fp)
 
 
+def dump_yaml(data_dict, file_path, **kwargs):
+    """
+    Dumps given dictionary into a YAML file
+    :param data_dict: (duct) Data dictionary
+    :param file_path: (str) Dump YAML file path
+    :param **kwargs: (dict) Additional kwargs for yaml.dump() function
+    """
+    with open(file_path, "w") as fp:
+        yaml.dump(data_dict, fp, **kwargs)
+
+
 def exec_from_yaml(config_path, exec_func, title="Experiment", safe_load=True, skip_prefix="ignore"):
     """
     Executes the given function by loading parameters from a YAML file with given structure:
