@@ -3,18 +3,18 @@ SoftDice: &base_config
   log_dir: results
   batch_size: 64
   path_row_config:
-    train: [0, 3000000, 100]
-    validation: [3000000, 4000000, 200]
-    test:  [4000000, 4100000, 250]
+    train: [0, 2000000, 50]
+    validation: [2000000, 3000000, 100]
+    test:  [3000000, 3100000, 250]
   data_config:
     n_voxels: 64
     n_dim: 2
   model_config:
-    lr: 0.0005
+    lr: 0.001
     input_shape: [64, 64, 2]
-    num_db: 3
+    num_db: 7
     convs_per_db: 2
-    growth_rate: 32
-    num_channels: 32
+    growth_rate: 16
+    num_channels: 16
   loss_config:
     name: soft_dice
