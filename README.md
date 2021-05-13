@@ -47,12 +47,12 @@ python demo_plot.py ${PATH_TO_DB_FILE}
       n_voxels: 64
       n_dim: 2
     model_config:
-      lr: 0.0005
+      lr: 0.001
       input_shape: [64, 64, 2]
-      num_db: 3
-      convs_per_db: 2
-      growth_rate: 32
-      num_channels: 32
+      num_db: 7                 # Total number of Dense blocks
+      convs_per_db: 2           # Convolutional blocks per Dense block
+      growth_rate: 16           # Growth rate of the DenseNet
+      num_channels: 16          # Number of channels in the first Transition block
     loss_config:
       name: focal
       gamma: 2
@@ -64,16 +64,20 @@ python demo_plot.py ${PATH_TO_DB_FILE}
   ```shell
   python train_sl_model.py focal.yaml
   ```
+  > Try it in [colab](notebook/Console.ipynb).
+
 From each model training session, following components are logged in the `results` directory:
 1. **model.tf**: Trained model as `.tf` format
 2. **tb_logs**: Tensorboard log information
 3. **test_images**: Images with model predictions on the test data set
 4. **model.png**: `PNG` image of the model architecture graph 
 
+---
+
 ## TODOs
 - Setups to perform experiments in Google Colab + GCP Compute  
 - Setups for the Supervised Learning methods
-  - Implement a `DenseNet` for the Image-to-Image path planning
+  - Implement a `U-DenseNet` for the Image-to-Image path planning
   - Implement another model for the Image-to-Points path planning
 - Setups for the Reinforcement Learning methods
   - Create a goal-based Gym-compliant RL environment  
