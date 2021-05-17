@@ -19,6 +19,7 @@ N_PATHS_PER_WORLD = 1000
 def load_img_from_sql(db_path, table, n_voxels, n_dim, img_cmps, rows=-1):
     table_df = get_values_sql(file=db_path, table=table, rows=rows)
     for cmp_name in img_cmps:
+        del images
         img_cmp = getattr(table_df, cmp_name)
         images = compressed2img(img_cmp=img_cmp.values, n_voxels=n_voxels, n_dim=n_dim)
         images = np.expand_dims(images, axis=-1)
@@ -103,7 +104,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, data_config, model_con
             "path_rows": path_rows,
             "obst_imgs": obst_imgs,
             "path_imgs": path_imgs,
-            "goal_imgs": start_imgs + end_imgs,
+            "goal_imgs": start_imgs + end_imgs,        # TODO: Perform this operation on batches?
         }
         data_gens[data_type] = DataGen(data_dict, callback=image2image_callback, batch_size=batch_size)
 
