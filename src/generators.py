@@ -6,7 +6,7 @@ class DataGen(Sequence):
         self.data_dict = data_dict
         self.batch_size = batch_size
         num_items = len(self.data_dict[length_key])
-        self.indexes = np.arange(num_items, dtype="uint16")
+        self.indexes = np.arange(num_items, dtype="uint32")
         self.gen_len = np.math.ceil(num_items/self.batch_size)
         self.callback = callback
         assert callable(self.callback)
