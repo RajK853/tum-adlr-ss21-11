@@ -1,14 +1,11 @@
 SoftDice: &base_config
   epochs: 30
   log_dir: results
-  batch_size: 64
+  batch_size: 256
   path_row_config:
-    train: [0, 2000000, 50]
-    validation: [2000000, 3000000, 100]
-    test:  [3000000, 3100000, 250]
-  data_config:
-    n_voxels: 64
-    n_dim: 2
+    train: [0, 4000000, 10]
+    validation: [1, 4000000, 100]
+    test: [4000000, 5000000, 500]
   model_config:
     lr: 0.001
     input_shape: [64, 64, 2]
