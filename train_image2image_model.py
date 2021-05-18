@@ -13,17 +13,28 @@ from src.callbacks import ImageSaverCallback
 from src.load import get_values_sql, compressed2img, object2numeric_array
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-N_PATHS_PER_WORLD = 1000
+
+N_DIM = 2
+N_VOXELS = 64
+VOXEL_SIZE = 10 / 64     # in m
+EXTENT = [0, 10, 0, 10]  # in m
+N_WAYPOINTS = 22  # start + 20 inner points + end
+N_PATHS_PER_WORLD = 1000# Load database path
 
 
-def load_img_from_sql(db_path, table, n_voxels, n_dim, img_cmps, rows=-1):
-    table_df = get_values_sql(file=db_path, table=table, rows=rows)
-    for cmp_name in img_cmps:
-        del images
-        img_cmp = getattr(table_df, cmp_name)
-        images = compressed2img(img_cmp=img_cmp.values, n_voxels=n_voxels, n_dim=n_dim)
-        images = np.expand_dims(images, axis=-1)
-        yield images
+def load_data_from_sql(db_path, table, cmp_names, rows=-1):
+    table_df = get_values_sql(file=db_path, table=table, rows=rows, columns=cmp_names)
+    for cmp_name in cmp_names:
+        if "_img_" in cmp_name:
+            images = compressed2img(img_cmp=table_df[cmp_name].values, n_voxels=N_VOXELS, n_dim=N_DIM)
+            images = np.expand_dims(images, axis=-1)
+            yield images
+            del images
+        else:
+            values = object2numeric_array(table_df[cmp_name].values)
+            values = values.reshape(-1, N_WAYPOINTS, N_DIM)
+            yield values
+            del values
 
 
 def image2image_callback(batch_indexes, data_dict):
@@ -37,16 +48,16 @@ def image2image_callback(batch_indexes, data_dict):
     return input_batch_data, output_batch_data
 
 
-def save_images(index, logs, log_dir):
+def image2image_saver(index, logs, log_dir):
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
     batch_predictions = logs["outputs"]
     for i in range(batch_predictions.shape[0]):
         fig, ax = plt.subplots()
-        ax.imshow(batch_inputs[i, :, :, 0], origin="lower", cmap="binary")               # Obstacle 
-        ax.imshow(batch_inputs[i, :, :, 1], origin="lower", cmap="Greens", alpha=0.3)    # Goal
-        ax.imshow(batch_outputs[i, :, :, 0], origin="lower", cmap="Blues", alpha=0.5)    # True path
-        ax.imshow(batch_predictions[i, :, :, 0], origin="lower", cmap="Reds", alpha=0.5) # Predicted path
+        ax.imshow(batch_inputs[i, :, :, 0], origin="lower", cmap="binary", extent=EXTENT)               # Obstacle 
+        ax.imshow(batch_inputs[i, :, :, 1], origin="lower", cmap="Greens", extent=EXTENT, alpha=0.3)    # Goal
+        ax.imshow(batch_outputs[i, :, :, 0], origin="lower", cmap="Blues", extent=EXTENT, alpha=0.5)    # True path
+        ax.imshow(batch_predictions[i, :, :, 0], origin="lower", cmap="Reds", extent=EXTENT, alpha=0.5) # Predicted path
         ax.set_xticks([])
         ax.set_yticks([])
         fig.savefig(f"{log_dir}/Image_{index+i}.png")
@@ -60,54 +71,45 @@ def get_loss_func(loss_config):
     return loss_func(**loss_config)
 
 
-def main(*, epochs, log_dir, batch_size, path_row_config, data_config, model_config, loss_config):
+def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_config):
+    # Save experiment parameters to dump it later
+    exp_config = {"Config": locals()}
+
+    # Create log directory based on current timestamp
     timestamp = datetime.now().strftime("%d.%m.%Y_%H.%M")
     log_path = os.path.join(log_dir, f"{loss_config['name']}_{timestamp}")
-
-    # Save experiment configuration 
-    exp_config = {
-        "Config": {
-            "epochs": epochs,
-            "log_dir": log_dir,
-            "batch_size": batch_size,
-            "path_row_config": path_row_config,
-            "data_config": data_config,
-            "model_config": model_config,
-            "loss_config": loss_config,
-        }
-    }
+    
+    # Dump experiment parameters to a YAML file
     os.makedirs(log_path, exist_ok=True)
     config_dump_path = os.path.join(log_path, "config.yaml")
     dump_yaml(exp_config, file_path=config_dump_path)
     print(f"# Experiment configuration saved at '{config_dump_path}'")
 
-    # Load database path
+
     db_path = os.environ.get("DB_PATH")
     assert db_path is not None, "No database path found! Set the path using the command 'export DB_PATH=path/to/the/db/file'."
-    print(f"# Loaded database: {db_path}")
 
-    print("# Loading data")
     # Load obstacle data
-    data_config["db_path"] = db_path
-    data_config["table"] = "worlds"
-    data_config["img_cmps"] = ["obst_img_cmp"]
-    obst_imgs, *_ = load_img_from_sql(**data_config)
+    print("# Loading data")
+    cmp_names = ["obst_img_cmp"]
+    obst_imgs, *_ = load_data_from_sql(db_path, table="worlds", cmp_names=cmp_names)
 
     # Load train, validation and test data generators
-    data_config["table"] = "paths"
-    data_config["img_cmps"] = ["path_img_cmp", "start_img_cmp", "end_img_cmp"]
+    cmp_names = ["start_img_cmp", "end_img_cmp", "path_img_cmp"]
     data_gens = {}
     for data_type, path_row_range in path_row_config.items():
         path_rows = np.arange(*path_row_range)
-        path_imgs, start_imgs, end_imgs = load_img_from_sql(rows=path_rows, **data_config)
+        start_imgs, end_imgs, path_imgs = load_data_from_sql(db_path, table="paths", rows=path_rows, cmp_names=cmp_names)
+        goal_imgs = start_imgs + end_imgs
         data_dict = {
             "path_rows": path_rows,
             "obst_imgs": obst_imgs,
             "path_imgs": path_imgs,
-            "goal_imgs": start_imgs + end_imgs,        # TODO: Perform this operation on batches?
+            "goal_imgs": goal_imgs,
         }
-        data_gens[data_type] = DataGen(data_dict, callback=image2image_callback, batch_size=batch_size)
-
+        data_gens[data_type] = DataGen(data_dict, callback=image2image_callback, batch_size=batch_size, length_key="path_rows")
+        del path_rows, start_imgs, end_imgs, path_imgs, goal_imgs
+        
     # Load model
     print("# Loading U-DenseNet model")
     tf.keras.backend.clear_session()
@@ -139,7 +141,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, data_config, model_con
     # Predict on test data set
     print("# Predicting on test data set")
     img_dump_path = os.path.join(log_path, "test_images")
-    test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=save_images)]
+    test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=image2image_saver)]
     denseNet.predict(data_gens["test"], callbacks=test_callbacks)
 
 if __name__ == "__main__":
