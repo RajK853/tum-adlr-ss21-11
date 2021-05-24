@@ -34,10 +34,13 @@ class DenseBlock(Layer):
         self.filters = filters
         self.num_layers = num_layers
         self.layers = [ConvBlock(self.filters) for i in range(self.num_layers)]
+        self.concat = Concatenate(axis=-1)
     
     def call(self, x, training=False):
+        x_in = x
         for layer in self.layers:
             x = layer(x, training=training)
+        x = self.concat([x_in, x])
         return x
     
     def get_config(self):
