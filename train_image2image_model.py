@@ -100,7 +100,8 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     for data_type, path_row_range in path_row_config.items():
         path_rows = np.arange(*path_row_range)
         start_imgs, end_imgs, path_imgs = load_data_from_sql(db_path, table="paths", rows=path_rows, cmp_names=cmp_names)
-        goal_imgs = start_imgs + end_imgs
+        # Numpy.add reduces the memory spike during addition operation compared to the + operator
+        goal_imgs = np.add(start_imgs, end_imgs, out=start_imgs)
         data_dict = {
             "path_rows": path_rows,
             "obst_imgs": obst_imgs,
