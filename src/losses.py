@@ -12,11 +12,11 @@ def cross_entropy(beta=1, balanced=False, weight=1.0, epsilon=1e-6):
 
     def loss_func(y_true, y_pred):
         axes = tf.range(1, tf.rank(y_true))
-        y_true = tf.cast(y_true, dtype=tf.float32)
+        y_true = tf.cast(y_true, dtype=y_pred.dtype)
         y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
         loss = compute_cross_entropy(w1, w2, y_true, y_pred)
-        loss = -tf.reduce_sum(loss, axis=axes)
-        return weight*tf.reduce_mean(loss)
+        loss = tf.reduce_sum(loss, axis=axes)
+        return -weight*tf.reduce_mean(loss)
     return loss_func
 
 
@@ -26,13 +26,13 @@ def focal(gamma=2, beta=0.25, balanced=False, weight=1.0, epsilon=1e-6):
 
     def loss_func(y_true, y_pred):
         axes = tf.range(1, tf.rank(y_true))
-        y_true = tf.cast(y_true, dtype=tf.float32)
+        y_true = tf.cast(y_true, dtype=y_pred.dtype)
         y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-        w1 = beta1*(1-y_pred)**gamma
-        w2 = beta2*(y_pred**gamma)
+        w1 = beta1*y_true*(1 - y_pred)**gamma
+        w2 = beta2*(1 - y_true)*y_pred**gamma
         loss = compute_cross_entropy(w1, w2, y_true, y_pred)
-        loss = -tf.reduce_sum(loss, axis=axes)
-        return weight*tf.reduce_mean(loss)
+        loss = tf.reduce_sum(loss, axis=axes)
+        return -weight*tf.reduce_mean(loss)
     return loss_func
 
 
@@ -41,7 +41,7 @@ def focal(gamma=2, beta=0.25, balanced=False, weight=1.0, epsilon=1e-6):
 def soft_dice(weight=1.0, epsilon=1e-6):
     def loss_func(y_true, y_pred):
         axes = tf.range(1, tf.rank(y_true))
-        y_true = tf.cast(y_true, dtype=tf.float32)
+        y_true = tf.cast(y_true, dtype=y_pred.dtype)
         nominator = 2*tf.reduce_sum(y_true*y_pred, axis=axes)
         denominator = tf.math.square(y_true) + tf.math.square(y_pred)
         denominator = tf.reduce_sum(denominator, axis=axes)
@@ -52,7 +52,7 @@ def soft_dice(weight=1.0, epsilon=1e-6):
 def tversky(beta=0.25, weight=1.0, epsilon=1e-6):
     def loss_func(y_true, y_pred):        
         axes = tf.range(1, tf.rank(y_true))
-        y_true = tf.cast(y_true, dtype=tf.float32)
+        y_true = tf.cast(y_true, dtype=y_pred.dtype)
         nominator = tf.reduce_sum(y_true*y_pred, axis=axes)
         denominator = y_true*y_pred + beta*(1-y_true)*y_pred + (1-beta)*y_true*(1-y_pred)
         denominator = tf.reduce_sum(denominator, axis=axes)
