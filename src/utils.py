@@ -2,6 +2,7 @@ import os
 import cv2
 import yaml
 import numpy as np
+from copy import deepcopy
 
 
 def resize_imgs(imgs, size, dtype=np.bool_):
@@ -105,7 +106,7 @@ def exec_from_yaml(config_path, exec_func, title="Experiment", safe_load=True, s
                 continue
             print(f"\n{i}. {title}: {exp_name}")
             try:
-                # Execute the exec_func function by unpacking the experiment's keyword-arguments
+                exp_kwargs = deepcopy(exp_kwargs)   # To prevent the propagation of any change in the exp_kwargs
                 result = exec_func(**exp_kwargs)
                 result_dict[exp_name] = result
             except KeyboardInterrupt:
