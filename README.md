@@ -42,9 +42,6 @@ python demo_plot.py ${PATH_TO_DB_FILE}
       train: [0, 3000000, 200]
       validation: [3000000, 4000000, 100]
       test:  [4000000, 4100000, 250]
-    data_config:
-      n_voxels: 64
-      n_dim: 2
     model_config:
       lr: 0.001
       input_shape: [64, 64, 2]
@@ -61,7 +58,7 @@ python demo_plot.py ${PATH_TO_DB_FILE}
   > Sample configuration files are available [here](/configs)
 - Execute the python script:
   ```shell
-  python train_sl_model.py focal.yaml
+  python train_image2image_model.py focal.yaml
   ```
   > Try it in [colab](notebook/Console.ipynb).
 
