@@ -43,8 +43,7 @@ def soft_dice(weight=1.0, epsilon=1e-6):
         axes = tf.range(1, tf.rank(y_true))
         y_true = tf.cast(y_true, dtype=y_pred.dtype)
         nominator = 2*tf.reduce_sum(y_true*y_pred, axis=axes)
-        denominator = tf.math.square(y_true) + tf.math.square(y_pred)
-        denominator = tf.reduce_sum(denominator, axis=axes)
+        denominator = tf.reduce_sum(y_true**2 + y_pred**2, axis=axes)
         loss = 1 - tf.reduce_mean((nominator + epsilon)/(denominator + epsilon))
         return weight*loss
     return loss_func
