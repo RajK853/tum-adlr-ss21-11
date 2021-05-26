@@ -28,7 +28,6 @@ python demo_plot.py ${PATH_TO_DB_FILE}
 ```
 
 ### Train U-DenseNet
-> Open as an [notebook](notebook/DenseNet.ipynb).
 - Set the database path environment variable `DB_PATH`:
   ```shell
   export DB_PATH=${PATH_TO_DB_FILE}
@@ -77,7 +76,7 @@ From each model training session, following components are logged in the `result
 ## TODOs
 - Setups to perform experiments in Google Colab + GCP Compute  
 - Setups for the Supervised Learning methods
-  - Implement a `U-DenseNet` for the Image-to-Image path planning
+  - ~~Implement a `U-DenseNet` for the Image-to-Image path planning~~
   - Implement another model for the Image-to-Points path planning
 - Setups for the Reinforcement Learning methods
   - Create a goal-based Gym-compliant RL environment  
