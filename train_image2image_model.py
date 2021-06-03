@@ -19,15 +19,15 @@ N_VOXELS = 64
 VOXEL_SIZE = 10 / 64     # in m
 EXTENT = [0, 10, 0, 10]  # in m
 N_WAYPOINTS = 22  # start + 20 inner points + end
-N_PATHS_PER_WORLD = 1000# Load database path
+N_PATHS_PER_WORLD = 1000  # Load database path
 
 
 def load_data_from_sql(db_path, table, cmp_names, rows=-1):
     table_df = get_values_sql(file=db_path, table=table, rows=rows, columns=cmp_names)
     for cmp_name in cmp_names:
         if "_img_" in cmp_name:
-            images = compressed2img(img_cmp=table_df[cmp_name].values, n_voxels=N_VOXELS, n_dim=N_DIM)
-            images = np.expand_dims(images, axis=-1)
+            images = compressed2img(img_cmp=table_df[cmp_name].values, n_voxels=N_VOXELS, n_dim=N_DIM, num_channels=1)
+            # images = np.expand_dims(images, axis=-1)
             yield images
             del images
         else:
@@ -43,6 +43,7 @@ def image2image_callback(batch_indexes, data_dict):
     obst_batch_data = data_dict["obst_imgs"][obst_indexes]
     goal_batch_data = data_dict["goal_imgs"][batch_indexes]
     path_batch_data = data_dict["path_imgs"][batch_indexes]
+    # TODO: Use np.stack
     input_batch_data = [np.concatenate([obst_batch_data, goal_batch_data], axis=-1)]
     output_batch_data = [path_batch_data]
     return input_batch_data, output_batch_data
@@ -52,6 +53,7 @@ def image2image_saver(index, logs, log_dir):
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
     batch_predictions = logs["outputs"]
+    # TODO: Save only Nth images
     for i in range(batch_predictions.shape[0]):
         fig, ax = plt.subplots()
         ax.imshow(batch_inputs[i, :, :, 0], origin="lower", cmap="binary", extent=EXTENT)               # Obstacle 
@@ -60,6 +62,7 @@ def image2image_saver(index, logs, log_dir):
         ax.imshow(batch_predictions[i, :, :, 0], origin="lower", cmap="Reds", extent=EXTENT, alpha=0.5) # Predicted path
         ax.set_xticks([])
         ax.set_yticks([])
+        fig.tight_layout()
         fig.savefig(f"{log_dir}/Image_{index+i}.png")
         plt.close(fig=fig)
 
@@ -108,6 +111,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
             "path_imgs": path_imgs,
             "goal_imgs": goal_imgs,
         }
+        # TODO: Load testing data later?
         data_gens[data_type] = DataGen(data_dict, callback=image2image_callback, batch_size=batch_size, length_key="path_rows")
         del path_rows, start_imgs, end_imgs, path_imgs, goal_imgs
         
@@ -117,10 +121,10 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     lr = model_config.pop("lr", 1e-3)
     denseNet = u_dense_net(**model_config)
     loss_func = get_loss_func(loss_config)
-    optimizer = tf.keras.optimizers.Adam(lr=lr)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     denseNet.compile(optimizer=optimizer, loss=loss_func)
     model_img_path = os.path.join(log_path, 'model.png')
-    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, show_shapes=True)
+    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, , show_layer_names=False, show_shapes=True)
     print(f"# Model graph saved at '{model_img_path}'")
 
     # Train model

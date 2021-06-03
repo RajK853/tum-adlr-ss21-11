@@ -64,6 +64,7 @@ def image2vector_saver(index, logs, log_dir):
         ax.plot(px, py, color="r", marker="o")    # Predicted path
         ax.set_xticks([])
         ax.set_yticks([])
+        fig.tight_layout()
         fig.savefig(f"{log_dir}/Image_{index+i}.png")
         plt.close(fig=fig)
 
@@ -74,9 +75,16 @@ def get_loss_func(loss_config):
     assert loss_func is not None, f"'{loss_name}' is not a valid loss function!"
     return loss_func(**loss_config)
 
+w_np = np.ones(shape=22)
+w_np[1:-1] = 0.8
+print(w_np)
+
 def loss_func(y_true, y_pred):
-    loss = tf.math.reduce_euclidean_norm(y_true-y_pred, axis=1)
-    return tf.reduce_mean(loss)
+    # loss = tf.math.reduce_euclidean_norm(y_true-y_pred, axis=1)
+    loss = (y_true-y_pred)**2
+    loss = tf.reduce_sum(loss, axis=-1)
+    w = tf.constant(w_np)
+    return tf.reduce_mean(w*loss)
 
 def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_config):
     # Save experiment parameters to dump it later
@@ -119,13 +127,13 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     # Load model
     print("# Loading DenseNet model")
     tf.keras.backend.clear_session()
-    lr = model_config.pop("lr", 1e-3)
+    lr = model_config.pop("lr", 1e-3) # TODO: Pass as main() function parameter?
     denseNet = dense_net(output_size=22, **model_config)   # TODO: Get output size from config
     # loss_func = get_loss_func(loss_config)
-    optimizer = tf.keras.optimizers.Adam(lr=lr)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     denseNet.compile(optimizer=optimizer, loss="mse") # loss_func)
     model_img_path = os.path.join(log_path, 'model.png')
-    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, show_shapes=True)
+    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, , show_layer_names=False, show_shapes=True)
     print(f"# Model graph saved at '{model_img_path}'")
 
     # Train model
@@ -147,6 +155,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     # Predict on test data set
     print("# Predicting on test data set")
     img_dump_path = os.path.join(log_path, "test_images")
+    # TODO: Put imagesavercallback only for visualization later on?
     test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=image2vector_saver)]
     denseNet.predict(data_gens["test"], callbacks=test_callbacks)
 
