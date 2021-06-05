@@ -133,7 +133,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     denseNet.compile(optimizer=optimizer, loss="mse") # loss_func)
     model_img_path = os.path.join(log_path, 'model.png')
-    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, , show_layer_names=False, show_shapes=True)
+    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, show_layer_names=False, show_shapes=True)
     print(f"# Model graph saved at '{model_img_path}'")
 
     # Train model

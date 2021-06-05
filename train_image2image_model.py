@@ -26,7 +26,7 @@ def load_data_from_sql(db_path, table, cmp_names, rows=-1):
     table_df = get_values_sql(file=db_path, table=table, rows=rows, columns=cmp_names)
     for cmp_name in cmp_names:
         if "_img_" in cmp_name:
-            images = compressed2img(img_cmp=table_df[cmp_name].values, n_voxels=N_VOXELS, n_dim=N_DIM, num_channels=1)
+            images = compressed2img(img_cmp=table_df[cmp_name].values, n_voxels=N_VOXELS, n_dim=N_DIM, n_channels=1)
             # images = np.expand_dims(images, axis=-1)
             yield images
             del images
@@ -124,7 +124,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
     denseNet.compile(optimizer=optimizer, loss=loss_func)
     model_img_path = os.path.join(log_path, 'model.png')
-    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, , show_layer_names=False, show_shapes=True)
+    tf.keras.utils.plot_model(denseNet, to_file=model_img_path, show_layer_names=False, show_shapes=True)
     print(f"# Model graph saved at '{model_img_path}'")
 
     # Train model
