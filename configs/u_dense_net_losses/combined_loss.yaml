@@ -1,4 +1,4 @@
-SoftDice&CrossEntropy: &base_config
+ignore_SoftDice&CrossEntropy: &base_config
   epochs: 30
   log_dir: results
   batch_size: 256
@@ -28,4 +28,45 @@ SD&WCE:
       - name: soft_dice
       - name: cross_entropy
         beta: 0.75
+    weights: [5.0, 0.05]
+
+ignore_SD&BCE:
+  <<: *base_config
+  loss_config:
+    name: combined_loss
+    loss_configs:
+      - name: soft_dice
+      - name: cross_entropy
+        beta: 0.75
+        balanced: True
+    weights: [5.0, 0.05]
+
+TL&CE:
+  <<: *base_config
+  loss_config:
+    name: combined_loss
+    loss_configs:
+      - name: tversky
+      - name: cross_entropy
+    weights: [5.0, 0.05]
+
+TL&WCE:
+  <<: *base_config
+  loss_config:
+    name: combined_loss
+    loss_configs:
+      - name: tversky
+      - name: cross_entropy
+        beta: 0.75
+    weights: [5.0, 0.05]
+
+TL&BCE:
+  <<: *base_config
+  loss_config:
+    name: combined_loss
+    loss_configs:
+      - name: tversky
+      - name: cross_entropy
+        beta: 0.75
+        balanced: True
     weights: [5.0, 0.05]
