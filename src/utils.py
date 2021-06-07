@@ -1,22 +1,7 @@
 import os
-import cv2
 import yaml
 import numpy as np
 from copy import deepcopy
-
-
-def resize_imgs(imgs, size, dtype=np.bool_):
-    N = imgs.shape[0]
-    new_imgs = np.zeros((N, *size), dtype=dtype)
-    for i in range(N):
-        new_imgs[i] = cv2.resize(imgs[i].astype("uint8"), size)
-    return new_imgs
-
-
-def pipe_funcs(data, funcs):
-    for func in funcs:
-        data = func(data)
-    return data
 
 
 def load_files(dir_path, file_types=None):
