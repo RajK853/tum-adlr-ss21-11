@@ -25,8 +25,8 @@ def focal(gamma=2, beta=0.25, weight=1.0, epsilon=1e-6):
         axes = tf.range(1, tf.rank(y_true))
         y_true = tf.cast(y_true, dtype=y_pred.dtype)
         y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
-        w1 = beta*y_true*(1 - y_pred)**gamma
-        w2 = (1-beta)*(1 - y_true)*y_pred**gamma
+        w1 = beta*(1 - y_pred)**gamma
+        w2 = (1-beta)*y_pred**gamma
         loss = compute_cross_entropy(w1, w2, y_true, y_pred)
         loss = tf.reduce_sum(loss, axis=axes)
         return -weight*tf.reduce_mean(loss)
@@ -50,6 +50,7 @@ def tversky(beta=0.25, weight=1.0, epsilon=1e-6):
         axes = tf.range(1, tf.rank(y_true))
         y_true = tf.cast(y_true, dtype=y_pred.dtype)
         nominator = tf.reduce_sum(y_true*y_pred, axis=axes)
+        # TODO: Swap beta and 1-beta?
         denominator = y_true*y_pred + beta*(1-y_true)*y_pred + (1-beta)*y_true*(1-y_pred)
         denominator = tf.reduce_sum(denominator, axis=axes)
         loss = 1 - tf.reduce_mean((nominator + epsilon)/(denominator + epsilon))
