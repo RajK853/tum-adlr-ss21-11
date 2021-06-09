@@ -8,11 +8,11 @@ In this project, we will investigate the Reinforcement Learning (RL) approach in
 1. Install [Conda](https://docs.anaconda.com/anaconda/install/linux/)
 2. Clone this repository
 ```shell
-git clone https://github.com/RajK853/tum-adlr-ss21-11.git .
+git clone https://github.com/RajK853/tum-adlr-ss21-11.git ~/adlr
 ```
 3. Create and activate conda environment with following command  
 ```shell
-cd tum-adlr-ss21-11
+cd ~/adlr
 conda env create -f environment.yaml
 conda activate adlr
 ```
