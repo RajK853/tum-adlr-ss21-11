@@ -56,7 +56,7 @@ def compressed2img_tf(bytes_dict, shape=None, dtype="uint8"):
         return img_tf
     
     return {key: decode_img(img_bytes) for key, img_bytes in bytes_dict.items()}
-    
+
 
 def image2image_callback_tf(data_dict):
     goal_imgs = data_dict["start_img_cmp"] + data_dict["end_img_cmp"]
@@ -72,7 +72,7 @@ def get_data_gen(data_df, batch_size, epochs=1, shuffle=True):
         data_gen = data_gen.shuffle(len(data_df)//10)
     data_gen = data_gen.batch(batch_size)
     data_gen = data_gen.map(lambda x: compressed2img_tf(x, shape=(64, 64, 1)), num_parallel_calls=tf.data.AUTOTUNE)
-    data_gen = data_gen.map(image2image_callback, num_parallel_calls=tf.data.AUTOTUNE)
+    data_gen = data_gen.map(image2image_callback_tf, num_parallel_calls=tf.data.AUTOTUNE)
     data_gen = data_gen.cache()
     if epochs > 1:
         data_gen = data_gen.repeat(epochs)
