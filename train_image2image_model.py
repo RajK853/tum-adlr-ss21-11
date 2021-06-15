@@ -66,14 +66,16 @@ def image2image_callback_tf(data_dict):
     return input_data, output_data
 
 
-def get_data_gen(data_df, batch_size, epochs=1):
+def get_data_gen(data_df, batch_size, epochs=1, shuffle=True):
     data_gen = tf.data.Dataset.from_tensor_slices(dict(data_df))
-    data_gen = data_gen.shuffle(len(data_df)//10)
+    if shuffle:
+        data_gen = data_gen.shuffle(len(data_df)//10)
     data_gen = data_gen.batch(batch_size)
     data_gen = data_gen.map(lambda x: compressed2img_tf(x, shape=(64, 64, 1)), num_parallel_calls=tf.data.AUTOTUNE)
-    data_gen = data_gen.map(image2image_callback_tf, num_parallel_calls=tf.data.AUTOTUNE)
+    data_gen = data_gen.map(image2image_callback, num_parallel_calls=tf.data.AUTOTUNE)
     data_gen = data_gen.cache()
-    data_gen = data_gen.repeat(epochs)
+    if epochs > 1:
+        data_gen = data_gen.repeat(epochs)
     data_gen = data_gen.prefetch(tf.data.AUTOTUNE)
     return data_gen
 
