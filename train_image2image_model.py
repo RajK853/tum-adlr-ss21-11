@@ -22,33 +22,6 @@ N_WAYPOINTS = 22  # start + 20 inner points + end
 N_PATHS_PER_WORLD = 1000  # Load database path
 
 
-def load_data_from_sql(db_path, table, cmp_names, rows=-1):
-    table_df = get_values_sql(file=db_path, table=table, rows=rows, columns=cmp_names)
-    for cmp_name in cmp_names:
-        if "_img_" in cmp_name:
-            images = compressed2img(img_cmp=table_df[cmp_name].values, n_voxels=N_VOXELS, n_dim=N_DIM, n_channels=1)
-            # images = np.expand_dims(images, axis=-1)
-            yield images
-            del images
-        else:
-            values = object2numeric_array(table_df[cmp_name].values)
-            values = values.reshape(-1, N_WAYPOINTS, N_DIM)
-            yield values
-            del values
-
-
-def image2image_callback(batch_indexes, data_dict):
-    path_indexes = data_dict["path_rows"][batch_indexes]
-    obst_indexes = path_indexes//N_PATHS_PER_WORLD
-    obst_batch_data = data_dict["obst_imgs"][obst_indexes]
-    goal_batch_data = data_dict["goal_imgs"][batch_indexes]
-    path_batch_data = data_dict["path_imgs"][batch_indexes]
-    # TODO: Use np.stack
-    input_batch_data = [np.concatenate([obst_batch_data, goal_batch_data], axis=-1)]
-    output_batch_data = [path_batch_data]
-    return input_batch_data, output_batch_data
-
-
 def image2image_saver(index, logs, log_dir):
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
@@ -74,6 +47,37 @@ def get_loss_func(loss_config):
     return loss_func(**loss_config)
 
 
+def compressed2img_tf(bytes_dict, shape=None, dtype="uint8"):
+    def decode_img(img_bytes):
+        img_str_tf = tf.io.decode_compressed(img_bytes, compression_type="ZLIB")
+        img_tf = tf.io.decode_raw(img_str_tf, out_type=dtype)
+        if shape is not None:
+            img_tf = tf.reshape(img_tf, (tf.shape(img_bytes)[0], *shape))
+        return img_tf
+    
+    return {key: decode_img(img_bytes) for key, img_bytes in bytes_dict.items()}
+    
+
+def image2image_callback_tf(data_dict):
+    goal_imgs = data_dict["start_img_cmp"] + data_dict["end_img_cmp"]
+    obst_imgs = data_dict["obst_img_cmp"]
+    input_data = tf.concat((obst_imgs, goal_imgs), axis=-1)
+    output_data = data_dict["path_img_cmp"]
+    return input_data, output_data
+
+
+def get_data_gen(data_df, batch_size, epochs=1):
+    data_gen = tf.data.Dataset.from_tensor_slices(dict(data_df))
+    data_gen = data_gen.shuffle(len(data_df)//10)
+    data_gen = data_gen.batch(batch_size)
+    data_gen = data_gen.map(lambda x: compressed2img_tf(x, shape=(64, 64, 1)), num_parallel_calls=tf.data.AUTOTUNE)
+    data_gen = data_gen.map(image2image_callback_tf, num_parallel_calls=tf.data.AUTOTUNE)
+    data_gen = data_gen.cache()
+    data_gen = data_gen.repeat(epochs)
+    data_gen = data_gen.prefetch(tf.data.AUTOTUNE)
+    return data_gen
+
+
 def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_config):
     # Save experiment parameters to dump it later
     exp_config = {"Config": locals()}
@@ -94,26 +98,22 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
 
     # Load obstacle data
     print("# Loading data")
-    cmp_names = ["obst_img_cmp"]
-    obst_imgs, *_ = load_data_from_sql(db_path, table="worlds", cmp_names=cmp_names)
+    world_df = get_values_sql(file=db_path, table="worlds", columns=["obst_img_cmp"])
 
     # Load train, validation and test data generators
     cmp_names = ["start_img_cmp", "end_img_cmp", "path_img_cmp"]
     data_gens = {}
+    steps = {}
     for data_type, path_row_range in path_row_config.items():
         path_rows = np.arange(*path_row_range)
-        start_imgs, end_imgs, path_imgs = load_data_from_sql(db_path, table="paths", rows=path_rows, cmp_names=cmp_names)
-        # Numpy.add reduces the memory spike during addition operation compared to the + operator
-        goal_imgs = np.add(start_imgs, end_imgs, out=start_imgs)
-        data_dict = {
-            "path_rows": path_rows,
-            "obst_imgs": obst_imgs,
-            "path_imgs": path_imgs,
-            "goal_imgs": goal_imgs,
-        }
-        # TODO: Load testing data later?
-        data_gens[data_type] = DataGen(data_dict, callback=image2image_callback, batch_size=batch_size, length_key="path_rows")
-        del path_rows, start_imgs, end_imgs, path_imgs, goal_imgs
+        data_df = get_values_sql(file=db_path, table="paths", rows=path_rows, columns=cmp_names)
+        data_df["obst_img_cmp"] = world_df.iloc[data_df.index//N_PATHS_PER_WORLD].values
+        if data_type == "test":
+            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, epochs=1, shuffle=False)
+            steps[data_type] = len(path_rows)
+        else:
+            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, epochs=epochs, shuffle=True)
+            steps[data_type] = np.math.ceil(len(path_rows)/batch_size)
         
     # Load model
     print("# Loading U-DenseNet model")
@@ -136,7 +136,15 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
         tf.keras.callbacks.TensorBoard(log_dir=tb_log_path), 
         tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5),
     ]
-    history = denseNet.fit(data_gens["train"], validation_data=data_gens["validation"], epochs=epochs, callbacks=train_callbacks)
+    train_kwargs = {
+        "x": data_gens["train"], 
+        "validation_data": data_gens["validation"],
+        "steps_per_epoch": steps["train"],
+        "validation_steps": steps["validation"],
+        "epochs": epochs, 
+        "callbacks": train_callbacks
+    }
+    history = denseNet.fit(**train_kwargs)
 
     # Save model
     model_path = os.path.join(log_path, "model.tf")
@@ -146,7 +154,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     # Predict on test data set
     print("# Predicting on test data set")
     img_dump_path = os.path.join(log_path, "test_images")
-    test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=image2image_saver)]
+    test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=image2image_saver, data_gen_size=steps["test"])]
     denseNet.predict(data_gens["test"], callbacks=test_callbacks)
 
 if __name__ == "__main__":
