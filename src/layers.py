@@ -3,6 +3,8 @@ from tensorflow.compat.v1.keras.layers import Layer, Conv2D, ReLU, Concatenate, 
 
 
 class ConvBlock(Layer):
+    __slots__ = ("filters", "bn", "conv2d", "relu", "concat")
+
     def __init__(self, filters, **kwargs):
         super(ConvBlock, self).__init__(**kwargs)
         self.filters = filters
@@ -28,7 +30,9 @@ class ConvBlock(Layer):
         return cls(**config)
 
 
-class DenseBlock(Layer):    
+class DenseBlock(Layer):
+    __slots__ = ("filters", "num_layers", "layers", "concat")
+
     def __init__(self, num_layers, filters, **kwargs):
         super(DenseBlock, self).__init__(**kwargs)
         self.filters = filters
@@ -53,6 +57,8 @@ class DenseBlock(Layer):
 
 
 class TransitionBlock(Layer):
+    __slots__ = ("filters", "trans_down", "bn", "relu" "conv2d", "pool2d")
+
     def __init__(self, filters, trans_down=True, **kwargs):
         super(TransitionBlock, self).__init__(**kwargs)
         self.filters = filters
