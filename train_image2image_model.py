@@ -22,6 +22,55 @@ N_WAYPOINTS = 22  # start + 20 inner points + end
 N_PATHS_PER_WORLD = 1000  # Load database path
 
 
+def decode_data_tf(raw_data_dict, img_shape=(64, 64, 1), vector_shape=(22, 2), dtype=tf.uint8):
+    def decode_img(img_bytes):
+        img_str_tf = tf.io.decode_compressed(img_bytes, compression_type="ZLIB")
+        img_tf = tf.io.decode_raw(img_str_tf, out_type=dtype)
+        img_tf = tf.reshape(img_tf, (tf.shape(img_bytes)[0], *img_shape))
+        return img_tf
+    
+    def decode_vector(vector_bytes):
+        vector_tf = tf.reshape(vector_bytes, (tf.shape(vector_bytes)[0], *vector_shape))
+        return vector_tf
+    
+    def decode(key, value):
+        if key.endswith("_img_cmp"):
+            return decode_img(value)
+        return decode_vector(value)
+    
+    data_dict = {key: decode(key, value) for key, value in raw_data_dict.items()}
+    return data_dict
+
+
+def get_data_gen(data_df, batch_size, callback, epochs=1, img_shape=(64, 64, 1), vector_shape=(22, 2), shuffle=True):
+    def preprocess(key, value):
+        if key.endswith("_img_cmp"):
+            return value
+        return np.stack(value)
+    
+    def decoder(x):
+        return decode_data_tf(x, img_shape=img_shape, vector_shape=vector_shape)
+
+    data_dict = {k: preprocess(k, v) for k, v in data_df.items()}
+    data_gen = tf.data.Dataset.from_tensor_slices(data_dict)
+    if shuffle:
+        data_gen = data_gen.shuffle(len(data_df)//10)
+    data_gen = data_gen.batch(batch_size)
+    data_gen = data_gen.map(decoder, num_parallel_calls=tf.data.AUTOTUNE)
+    data_gen = data_gen.cache()
+    data_gen = data_gen.map(callback, num_parallel_calls=tf.data.AUTOTUNE)
+    if epochs > 1:
+        data_gen = data_gen.repeat(epochs)
+    data_gen = data_gen.prefetch(tf.data.AUTOTUNE)
+    return data_gen
+
+def image2image_callback(data_dict):
+    goal_imgs = data_dict["start_img_cmp"] + data_dict["end_img_cmp"]
+    obst_imgs = data_dict["obst_img_cmp"]
+    input_data = tf.concat((obst_imgs, goal_imgs), axis=-1)
+    output_data = data_dict["path_img_cmp"]
+    return input_data, output_data
+
 def image2image_saver(index, logs, log_dir):
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
@@ -47,39 +96,6 @@ def get_loss_func(loss_config):
     return loss_func(**loss_config)
 
 
-def compressed2img_tf(bytes_dict, shape=None, dtype="uint8"):
-    def decode_img(img_bytes):
-        img_str_tf = tf.io.decode_compressed(img_bytes, compression_type="ZLIB")
-        img_tf = tf.io.decode_raw(img_str_tf, out_type=dtype)
-        if shape is not None:
-            img_tf = tf.reshape(img_tf, (tf.shape(img_bytes)[0], *shape))
-        return img_tf
-    
-    return {key: decode_img(img_bytes) for key, img_bytes in bytes_dict.items()}
-
-
-def image2image_callback_tf(data_dict):
-    goal_imgs = data_dict["start_img_cmp"] + data_dict["end_img_cmp"]
-    obst_imgs = data_dict["obst_img_cmp"]
-    input_data = tf.concat((obst_imgs, goal_imgs), axis=-1)
-    output_data = data_dict["path_img_cmp"]
-    return input_data, output_data
-
-
-def get_data_gen(data_df, batch_size, epochs=1, shuffle=True):
-    data_gen = tf.data.Dataset.from_tensor_slices(dict(data_df))
-    if shuffle:
-        data_gen = data_gen.shuffle(len(data_df)//10)
-    data_gen = data_gen.batch(batch_size)
-    data_gen = data_gen.map(lambda x: compressed2img_tf(x, shape=(64, 64, 1)), num_parallel_calls=tf.data.AUTOTUNE)
-    data_gen = data_gen.map(image2image_callback_tf, num_parallel_calls=tf.data.AUTOTUNE)
-    data_gen = data_gen.cache()
-    if epochs > 1:
-        data_gen = data_gen.repeat(epochs)
-    data_gen = data_gen.prefetch(tf.data.AUTOTUNE)
-    return data_gen
-
-
 def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_config):
     # Save experiment parameters to dump it later
     exp_config = {"Config": locals()}
@@ -103,20 +119,20 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     world_df = get_values_sql(file=db_path, table="worlds", columns=["obst_img_cmp"])
 
     # Load train, validation and test data generators
-    cmp_names = ["start_img_cmp", "end_img_cmp", "path_img_cmp"]
-    data_gens = {}
     steps = {}
+    data_gens = {}
+    cmp_names = ["start_img_cmp", "end_img_cmp", "path_img_cmp"]
     for data_type, path_row_range in path_row_config.items():
         path_rows = np.arange(*path_row_range)
         data_df = get_values_sql(file=db_path, table="paths", rows=path_rows, columns=cmp_names)
         data_df["obst_img_cmp"] = world_df.iloc[data_df.index//N_PATHS_PER_WORLD].values
         if data_type == "test":
-            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, epochs=1, shuffle=False)
+            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, callback=image2image_callback, epochs=1, shuffle=False)
             steps[data_type] = len(path_rows)
         else:
-            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, epochs=epochs, shuffle=True)
+            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, callback=image2image_callback, epochs=epochs, shuffle=True)
             steps[data_type] = np.math.ceil(len(path_rows)/batch_size)
-        
+    
     # Load model
     print("# Loading U-DenseNet model")
     tf.keras.backend.clear_session()
