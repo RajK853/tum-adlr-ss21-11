@@ -1,5 +1,5 @@
 import tensorflow.compat.v1 as tf
-from tensorflow.compat.v1.keras.layers import Layer, Conv2D, ReLU, Concatenate, BatchNormalization, AvgPool2D, UpSampling2D
+from tensorflow.compat.v1.keras.layers import Layer, Conv2D, ReLU, Concatenate, BatchNormalization, AvgPool2D, UpSampling2D, Dense, LayerNormalization
 
 
 class ConvBlock(Layer):
@@ -75,6 +75,29 @@ class TransitionBlock(Layer):
     def get_config(self):
         base_configs = super().get_config()
         return {"filters": self.filters, "trans_down": self.trans_down, **base_configs}
+    
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
+class LayerNormBlock(Layer):
+    def __init__(self, units, **kwargs):
+        super(LayerNormBlock, self).__init__(**kwargs)
+        self.units = units
+        self.ln = LayerNormalization()
+        self.dense = Dense(units=units)
+        self.relu = ReLU()
+        
+    def call(self, x, training=False):
+        x = self.ln(x, training=training)
+        x = self.dense(x)
+        x_out = self.relu(x)
+        return x_out
+    
+    def get_config(self):
+        base_configs = super().get_config()
+        return {"units": self.units, **base_configs}
     
     @classmethod
     def from_config(cls, config):
