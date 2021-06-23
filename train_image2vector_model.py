@@ -7,7 +7,6 @@ import tensorflow.compat.v1 as tf
 
 from src import losses                      # Change
 from src.models import dense_net            # Change
-from src.generators import DataGen
 from src.utils import exec_from_yaml, dump_yaml
 from src.callbacks import ImageSaverCallback
 from src.load import get_values_sql, compressed2img, object2numeric_array 
@@ -19,37 +18,61 @@ N_VOXELS = 64
 VOXEL_SIZE = 10 / 64     # in m
 EXTENT = [0, 10, 0, 10]  # in m
 N_WAYPOINTS = 22  # start + 20 inner points + end
-N_PATHS_PER_WORLD = 1000# Load database path
+N_PATHS_PER_WORLD = 1000 # Load database path
 
 
-def load_data_from_sql(db_path, table, cmp_names, rows=-1):
-    table_df = get_values_sql(file=db_path, table=table, rows=rows, columns=cmp_names)
-    for cmp_name in cmp_names:
-        if "_img_" in cmp_name:
-            images = compressed2img(img_cmp=table_df[cmp_name].values, n_voxels=N_VOXELS, n_dim=N_DIM)
-            images = np.expand_dims(images, axis=-1)
-            yield images
-            del images
-        else:
-            values = object2numeric_array(table_df[cmp_name].values)
-            values = values.reshape(-1, N_WAYPOINTS, N_DIM)
-            yield values
-            del values
+def decode_data_tf(raw_data_dict, img_shape=(64, 64, 1), vector_shape=(22, 2), dtype=tf.uint8):
+    def decode_img(img_bytes):
+        img_str_tf = tf.io.decode_compressed(img_bytes, compression_type="ZLIB")
+        img_tf = tf.io.decode_raw(img_str_tf, out_type=dtype)
+        img_tf = tf.reshape(img_tf, (tf.shape(img_bytes)[0], *img_shape))
+        return img_tf
+    
+    def decode_vector(vector_bytes):
+        vector_tf = tf.reshape(vector_bytes, (tf.shape(vector_bytes)[0], *vector_shape))
+        return vector_tf
+    
+    def decode(key, value):
+        if key.endswith("_img_cmp"):
+            return decode_img(value)
+        return decode_vector(value)
+    
+    data_dict = {key: decode(key, value) for key, value in raw_data_dict.items()}
+    return data_dict
 
 
-def image2vector_callback(batch_indexes, data_dict):
-    path_indexes = data_dict["path_rows"][batch_indexes]
-    obst_indexes = path_indexes//N_PATHS_PER_WORLD
-    obst_batch_data = data_dict["obst_imgs"][obst_indexes]
-    start_batch_data = data_dict["start_imgs"][batch_indexes]
-    end_batch_data = data_dict["end_imgs"][batch_indexes]
-    path_batch_data = data_dict["q_paths"][batch_indexes]
-    input_batch_data = [np.concatenate([obst_batch_data, start_batch_data, end_batch_data], axis=-1)]
-    output_batch_data = [path_batch_data]
-    return input_batch_data, output_batch_data
+def image2vector_callback(data_dict):
+    input_data = tf.concat((data_dict["obst_img_cmp"], data_dict["start_img_cmp"], data_dict["end_img_cmp"]), axis=-1)
+    output_data = data_dict["q_path"]
+    return input_data, output_data
 
 
-def image2vector_saver(index, logs, log_dir):
+def get_data_gen(data_df, batch_size, callback, epochs=1, img_shape=(64, 64, 1), vector_shape=(22, 2), shuffle=True):
+    def preprocess(key, value):
+        if key.endswith("_img_cmp"):
+            return value
+        return np.stack(value)
+    
+    def decoder(x):
+        return decode_data_tf(x, img_shape=img_shape, vector_shape=vector_shape)
+
+    data_dict = {k: preprocess(k, v) for k, v in data_df.items()}
+    # Normalize q_path from 0.0-10.0 range to 0.0-1.0.
+    # data_dict["q_path"] = data_dict["q_path"]/EXTENT[1]
+    data_gen = tf.data.Dataset.from_tensor_slices(data_dict)
+    if shuffle:
+        data_gen = data_gen.shuffle(len(data_df)//10)
+    data_gen = data_gen.batch(batch_size)
+    data_gen = data_gen.map(decoder, num_parallel_calls=tf.data.AUTOTUNE)
+    data_gen = data_gen.cache()
+    data_gen = data_gen.map(callback, num_parallel_calls=tf.data.AUTOTUNE)
+    if epochs > 1:
+        data_gen = data_gen.repeat(epochs)
+    data_gen = data_gen.prefetch(tf.data.AUTOTUNE)
+    return data_gen
+
+
+def image2vector_saver(index, logs, log_dir):   # TODO: Reworking like image2image_saver needed?
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
     batch_predictions = logs["outputs"]
@@ -58,9 +81,9 @@ def image2vector_saver(index, logs, log_dir):
         ax.imshow(batch_inputs[i, :, :, 0], origin="lower", cmap="binary", extent=EXTENT)               # Obstacle 
         ax.imshow(batch_inputs[i, :, :, 1], origin="lower", cmap="Blues", extent=EXTENT, alpha=0.8)     # Start point 
         ax.imshow(batch_inputs[i, :, :, 2], origin="lower", cmap="Greens", extent=EXTENT, alpha=0.4)    # Goal point 
-        py, px = batch_outputs[i, :, :].T
+        py, px = batch_outputs[i, :, :].T# *EXTENT[1]
         ax.plot(px, py, color="k", marker="o")    # True path
-        py, px = batch_predictions[i, :, :].T
+        py, px = batch_predictions[i].T# *EXTENT[1]
         ax.plot(px, py, color="r", marker="o")    # Predicted path
         ax.set_xticks([])
         ax.set_yticks([])
@@ -75,16 +98,22 @@ def get_loss_func(loss_config):
     assert loss_func is not None, f"'{loss_name}' is not a valid loss function!"
     return loss_func(**loss_config)
 
-w_np = np.ones(shape=22)
-w_np[1:-1] = 0.8
-print(w_np)
 
 def loss_func(y_true, y_pred):
-    # loss = tf.math.reduce_euclidean_norm(y_true-y_pred, axis=1)
-    loss = (y_true-y_pred)**2
-    loss = tf.reduce_sum(loss, axis=-1)
-    w = tf.constant(w_np)
-    return tf.reduce_mean(w*loss)
+    def get_length(points):
+        point_separations = tf.norm(points[:, 1:]-points[:, :-1], ord=1, axis=-1)
+        vector_length = tf.reduce_sum(point_separations, axis=-1)
+        return vector_length
+
+    def length_loss(y_true, y_pred):
+        y_true_length = get_length(y_true)
+        y_pred_length = get_length(y_pred)
+        return (y_true_length - y_pred_length)**2
+
+    loss = tf.reduce_mean(tf.norm(y_true-y_pred, ord=1, axis=-1))
+    # loss += tf.reduce_mean(length_loss(y_true, y_pred))
+    return loss
+
 
 def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_config):
     # Save experiment parameters to dump it later
@@ -106,32 +135,30 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
 
     # Load obstacle data
     print("# Loading data")
-    cmp_names = ["obst_img_cmp"]
-    obst_imgs, *_ = load_data_from_sql(db_path, table="worlds", cmp_names=cmp_names)
+    world_df = get_values_sql(file=db_path, table="worlds", columns=["obst_img_cmp"])
 
     # Load train, validation and test data generators
-    cmp_names = ["start_img_cmp", "end_img_cmp", "q_path"]
+    steps = {}
     data_gens = {}
+    cmp_names = ["start_img_cmp", "end_img_cmp", "q_path"]
     for data_type, path_row_range in path_row_config.items():
         path_rows = np.arange(*path_row_range)
-        start_imgs, end_imgs, q_paths = load_data_from_sql(db_path, table="paths", rows=path_rows, cmp_names=cmp_names)
-        data_dict = {
-            "path_rows": path_rows,
-            "obst_imgs": obst_imgs,
-            "start_imgs": start_imgs,
-            "end_imgs": end_imgs,
-            "q_paths": q_paths,
-        }
-        data_gens[data_type] = DataGen(data_dict, callback=image2vector_callback, batch_size=batch_size, length_key="path_rows")
-        del path_rows, start_imgs, end_imgs, q_paths
+        data_df = get_values_sql(file=db_path, table="paths", rows=path_rows, columns=cmp_names)
+        data_df["obst_img_cmp"] = world_df.iloc[data_df.index//N_PATHS_PER_WORLD].values
+        if data_type == "test":
+            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, callback=image2vector_callback, epochs=1, shuffle=False)
+            steps[data_type] = len(path_rows)
+        else:
+            data_gens[data_type] = get_data_gen(data_df, batch_size=batch_size, callback=image2vector_callback, epochs=epochs, shuffle=True)
+            steps[data_type] = np.math.ceil(len(path_rows)/batch_size)
     # Load model
     print("# Loading DenseNet model")
     tf.keras.backend.clear_session()
     lr = model_config.pop("lr", 1e-3) # TODO: Pass as main() function parameter?
-    denseNet = dense_net(output_size=22, **model_config)   # TODO: Get output size from config
+    denseNet = dense_net(**model_config)   # TODO: Get output size from config
     # loss_func = get_loss_func(loss_config)
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
-    denseNet.compile(optimizer=optimizer, loss="mse") # loss_func)
+    denseNet.compile(optimizer=optimizer, loss=loss_func)
     model_img_path = os.path.join(log_path, 'model.png')
     tf.keras.utils.plot_model(denseNet, to_file=model_img_path, show_layer_names=False, show_shapes=True)
     print(f"# Model graph saved at '{model_img_path}'")
@@ -145,7 +172,15 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
         tf.keras.callbacks.TensorBoard(log_dir=tb_log_path), 
         tf.keras.callbacks.EarlyStopping(monitor="val_loss", mode="min", patience=5),
     ]
-    history = denseNet.fit(data_gens["train"], validation_data=data_gens["validation"], epochs=epochs, callbacks=train_callbacks)
+    train_kwargs = {
+        "x": data_gens["train"], 
+        "validation_data": data_gens["validation"],
+        "steps_per_epoch": steps["train"],
+        "validation_steps": steps["validation"],
+        "epochs": epochs, 
+        "callbacks": train_callbacks
+    }
+    history = denseNet.fit(**train_kwargs)
 
     # Save model
     model_path = os.path.join(log_path, "model.tf")
@@ -155,8 +190,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     # Predict on test data set
     print("# Predicting on test data set")
     img_dump_path = os.path.join(log_path, "test_images")
-    # TODO: Put imagesavercallback only for visualization later on?
-    test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=image2vector_saver)]
+    test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=image2vector_saver, data_gen_size=steps["test"])]
     denseNet.predict(data_gens["test"], callbacks=test_callbacks)
 
 if __name__ == "__main__":
