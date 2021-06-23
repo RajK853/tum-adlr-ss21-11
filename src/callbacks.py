@@ -26,9 +26,13 @@ class ImageSaverCallback(Callback):
     def on_predict_batch_end(self, batch, logs=None):
         batch_inputs, batch_outputs = next(self.data_iter)
         logs["inputs"] = batch_inputs.numpy()
-        logs["true_outputs"] = batch_outputs.numpy()
+        if isinstance(batch_outputs, dict):
+            logs["true_outputs"] = [v.numpy() for v in batch_outputs.values()]
+            batch_size = logs["true_outputs"][0].shape[0]
+        else:
+            logs["true_outputs"] = batch_outputs.numpy()
+            batch_size = logs["true_outputs"].shape[0]
         self.callback(self.index, logs, self.log_dir)
-        batch_size = logs["outputs"].shape[0]
         self.pbar.step(batch_size)
         self.index += batch_size
         
