@@ -76,15 +76,22 @@ def image2vector_saver(index, logs, log_dir):   # TODO: Reworking like image2ima
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
     batch_predictions = logs["outputs"]
-    for i in range(batch_predictions.shape[0]):
+    batch_size, img_w, img_h, *_ = batch_inputs.shape
+    img_shape = (img_w, img_h, 3)          # RGB image shape
+    for i in range(batch_size):
+        # Prepare plot image
+        img = np.full(img_shape, 1-batch_inputs[i, :, :, 0:1], dtype=np.float32)
+        img[:, :, [1, 2]] -= batch_inputs[i, :, :, 1:2]                    # Start pos in red channel
+        img[:, :, [0, 2]] -= batch_inputs[i, :, :, 2:3]                    # End pos in green channel
+        np.clip(img, 0.0, 1.0, out=img)
+        # Plot image
         fig, ax = plt.subplots()
-        ax.imshow(batch_inputs[i, :, :, 0], origin="lower", cmap="binary", extent=EXTENT)               # Obstacle 
-        ax.imshow(batch_inputs[i, :, :, 1], origin="lower", cmap="Blues", extent=EXTENT, alpha=0.8)     # Start point 
-        ax.imshow(batch_inputs[i, :, :, 2], origin="lower", cmap="Greens", extent=EXTENT, alpha=0.4)    # Goal point 
-        py, px = batch_outputs[i, :, :].T# *EXTENT[1]
+        ax.imshow(img, origin="lower", extent=EXTENT)
+        # Plot vector lines
+        py, px = batch_outputs[i, :, :].T
         ax.plot(px, py, color="k", marker="o")    # True path
-        py, px = batch_predictions[i].T# *EXTENT[1]
-        ax.plot(px, py, color="r", marker="o")    # Predicted path
+        py, px = batch_predictions[i].T
+        ax.plot(px, py, color="darkred", marker="o")
         ax.set_xticks([])
         ax.set_yticks([])
         fig.tight_layout()

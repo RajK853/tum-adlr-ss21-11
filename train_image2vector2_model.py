@@ -70,22 +70,28 @@ def get_data_gen(data_df, batch_size, callback, epochs=1, img_shape=(64, 64, 1),
     return data_gen
 
 
-def image2vector_saver(index, logs, log_dir):   # TODO: Reworking like image2image_saver needed?
+def image2vector_saver(index, logs, log_dir):
     batch_inputs = logs["inputs"]
     batch_img_outputs, batch_vec_outputs = logs["true_outputs"]
     batch_img_predictions, batch_vec_predictions = logs["outputs"]
-    batch_size = batch_inputs.shape[0]
+    batch_size, img_w, img_h, *_ = batch_inputs.shape
+    img_shape = (img_w, img_h, 3)          # RGB image shape
     for i in range(batch_size):
+        # Prepare plot image
+        img = np.full(img_shape, 1-batch_inputs[i, :, :, 0:1], dtype=np.float32)
+        img[:, :, [1, 2]] -= batch_inputs[i, :, :, 1:2]                    # Start pos in red channel
+        img[:, :, [0, 2]] -= batch_inputs[i, :, :, 2:3]                    # End pos in green channel
+        img -= 0.5*batch_img_outputs[i]                                    # True path in grey color (partially all channels)
+        img[:, :, [1, 2]] -= 0.75*batch_img_predictions[i]                 # Predicted path in red channel
+        np.clip(img, 0.0, 1.0, out=img)
+        # Plot image
         fig, ax = plt.subplots()
-        ax.imshow(batch_inputs[i, :, :, 0], origin="lower", cmap="binary", extent=EXTENT)               # Obstacle 
-        ax.imshow(batch_inputs[i, :, :, 1], origin="lower", cmap="Blues", extent=EXTENT, alpha=0.8)     # Start point 
-        ax.imshow(batch_inputs[i, :, :, 2], origin="lower", cmap="Greens", extent=EXTENT, alpha=0.4)    # Goal point 
-        ax.imshow(batch_img_outputs[i, :, :, 0], origin="lower", cmap="Blues", extent=EXTENT, alpha=0.5)    # True path
-        ax.imshow(batch_img_predictions[i, :, :, 0], origin="lower", cmap="Reds", extent=EXTENT, alpha=0.5) # Predicted path
-        py, px = batch_vec_outputs[i, :, :].T# *EXTENT[1]
+        ax.imshow(img, origin="lower", extent=EXTENT)
+        # Plot vector lines
+        py, px = batch_vec_outputs[i, :, :].T
         ax.plot(px, py, color="k", marker="o")    # True path
-        py, px = batch_vec_predictions[i].T# *EXTENT[1]
-        ax.plot(px, py, color="r", marker="o")    # Predicted path
+        py, px = batch_vec_predictions[i].T
+        ax.plot(px, py, color="darkred", marker="o")
         ax.set_xticks([])
         ax.set_yticks([])
         fig.tight_layout()

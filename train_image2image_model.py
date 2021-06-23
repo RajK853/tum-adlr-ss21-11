@@ -74,13 +74,18 @@ def image2image_saver(index, logs, log_dir):
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
     batch_predictions = logs["outputs"]
-    # TODO: Save only Nth images
-    for i in range(batch_predictions.shape[0]):
+    batch_size, img_w, img_h, *_ = batch_inputs.shape
+    img_shape = (img_w, img_h, 3)          # RGB image shape
+    for i in range(batch_size):
+        # Prepare plot image
+        img = np.full(img_shape, 1-batch_inputs[i, :, :, 0:1], dtype=np.float32)
+        img[:, :, [0, 2]] -= batch_inputs[i, :, :, 1:2]                # Start-End pos in green channel
+        img -= 0.5*batch_outputs[i]                                    # True path in grey color (partially all channels)
+        img[:, :, [1, 2]] -= 0.75*batch_predictions[i]                 # Predicted path in red channel
+        np.clip(img, 0.0, 1.0, out=img)
+        # Plot image
         fig, ax = plt.subplots()
-        ax.imshow(batch_inputs[i, :, :, 0], origin="lower", cmap="binary", extent=EXTENT)               # Obstacle 
-        ax.imshow(batch_inputs[i, :, :, 1], origin="lower", cmap="Greens", extent=EXTENT, alpha=0.3)    # Goal
-        ax.imshow(batch_outputs[i, :, :, 0], origin="lower", cmap="Blues", extent=EXTENT, alpha=0.5)    # True path
-        ax.imshow(batch_predictions[i, :, :, 0], origin="lower", cmap="Reds", extent=EXTENT, alpha=0.5) # Predicted path
+        ax.imshow(img, origin="lower", extent=EXTENT)
         ax.set_xticks([])
         ax.set_yticks([])
         fig.tight_layout()
