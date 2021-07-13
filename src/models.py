@@ -1,5 +1,5 @@
 from tensorflow.compat.v1.keras import Model
-from tensorflow.compat.v1.keras.layers import Input, Conv1D, Conv2D, Concatenate, Flatten, Dense, Reshape
+from tensorflow.compat.v1.keras.layers import Input, Conv1D, Conv2D, Concatenate, Flatten, Dense, Reshape, MaxPool2D
 
 from .layers import DenseBlock, TransitionBlock, LayerNormBlock
 
@@ -91,10 +91,13 @@ def u_dense_net_2(input_shape, output_shape, num_db, num_channels=64, growth_rat
         x = Concatenate(axis=-1)([x, db_outputs[i]])
         x = DenseBlock(num_layers=convs_per_db, filters=growth_rate)(x)
     img_out = Conv2D(1, kernel_size=(5, 5), activation="sigmoid", padding="same", name="img_out")(x)
-
-    x = Flatten()(x_mid)
-    x = LayerNormBlock(256)(x)
-    x = LayerNormBlock(256)(x)
+    
+    x = TransitionBlock(filters=_num_channels, trans_down=True)(x)
+    x = DenseBlock(num_layers=convs_per_db, filters=growth_rate)(x)
+    x = TransitionBlock(filters=_num_channels, trans_down=True)(x)
+    x = Flatten()(x)
+    x = Dense(256, activation="relu")(x)
+    x = Dense(256, activation="relu")(x)
     x = Dense(output_shape[0]*output_shape[1])(x)
     path_out = Reshape(output_shape, name="path_out")(x)
     model = Model(inputs=[img_in], outputs=[img_out, path_out], name="DenseNet")
