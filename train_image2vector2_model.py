@@ -91,7 +91,7 @@ def image2vector_saver(index, logs, log_dir):
         py, px = batch_vec_outputs[i, :, :].T
         ax.plot(px, py, color="k", marker="o")    # True path
         py, px = batch_vec_predictions[i].T
-        ax.plot(px, py, color="darkred", marker="o")
+        ax.plot(px, py, color="y", marker="o")
         ax.set_xticks([])
         ax.set_yticks([])
         fig.tight_layout()
@@ -164,11 +164,11 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     print("# Loading DenseNet model")
     tf.keras.backend.clear_session()
     lr = model_config.pop("lr", 1e-3) # TODO: Pass as main() function parameter?
-    model_config["input_shape"] = (64, 64, 3)
+    model_config["input_shape"] = (64, 64, 3)                        # TODO: Change this later
     denseNet = u_dense_net_2(output_shape=(22, 2), **model_config)   # TODO: Get output size from config
     img_loss_func = get_loss_func(loss_config)
     optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
-    denseNet.compile(optimizer=optimizer, loss=[img_loss_func, loss_func], loss_weights=[10.0, 0.1])
+    denseNet.compile(optimizer=optimizer, loss=[img_loss_func, loss_func], loss_weights=[1.0, 2.0])
     model_img_path = os.path.join(log_path, 'model.png')
     tf.keras.utils.plot_model(denseNet, to_file=model_img_path, show_layer_names=False, show_shapes=True)
     print(f"# Model graph saved at '{model_img_path}'")
