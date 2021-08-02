@@ -17,16 +17,16 @@ git clone https://github.com/RajK853/tum-adlr-ss21-11.git ~/adlr
 3. Create and activate conda environment with following command  
 ```shell
 cd ~/adlr
-conda env create -f environment.yml
+conda env create -f environment_gpu.yaml
 conda activate adlr
 ```
 
 ## Usage
+### Interactive plot
 
 ![interactive_plot](assets/interactive_plot.gif)
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/RajK853/tum-adlr-ss21-11.git/HEAD?filepath=notebook%2FInteractive_Plot.ipynb)
-
+Our interactive plot is available at [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/RajK853/tum-adlr-ss21-11.git/HEAD?filepath=notebook%2FInteractive_Plot.ipynb). Anyone can open it in their browser to interact with one of our trained models available under the directory `sample_models`. It contains each model for Image-to-Image and Image-to-Coordinate approaches.
 
 ### Demo plot
 > Open as an [notebook](notebook/Demo_plot.ipynb).
@@ -60,8 +60,9 @@ python demo_plot.py ${PATH_TO_DB_FILE}
       num_channels: 16          # Number of channels in the first Transition block
     loss_config:
       name: focal
-      gamma: 2
-      beta: 1.5
+      gamma: 1.3
+      beta: 0.75
+      weight: 0.01
   ```
 
   > Sample configuration files are available [here](/configs)
@@ -69,6 +70,7 @@ python demo_plot.py ${PATH_TO_DB_FILE}
   ```shell
   python train_image2image_model.py focal.yaml
   ```
+  > To train the image-to-coordiante model, use `train_image2vector_model.py` instead
   > Try it in [colab](notebook/Console.ipynb).
 
 From each model training session, following components are logged in the `results` directory:
