@@ -8,7 +8,7 @@ dependencies:
 - pandas=1.2.4
 - matplotlib=3.4.1
 - jupyterlab=3.0.14
-- tensorflow-gpu=2.4.1
+- tensorflow=2.4.1
 - opencv=4.5.2
 - pip:
     - pydot=1.4.2
