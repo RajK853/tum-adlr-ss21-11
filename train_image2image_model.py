@@ -7,21 +7,24 @@ import tensorflow.compat.v1 as tf
 
 from src import losses
 from src.models import u_dense_net
-from src.utils import exec_from_yaml, dump_yaml
 from src.callbacks import ImageSaverCallback
+from src.utils import exec_from_yaml, dump_yaml
 from src.load import get_values_sql, compressed2img, object2numeric_array
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 N_DIM = 2
 N_VOXELS = 64
-VOXEL_SIZE = 10 / 64     # in m
-EXTENT = [0, 10, 0, 10]  # in m
-N_WAYPOINTS = 22  # start + 20 inner points + end
+VOXEL_SIZE = 10 / 64      # in m
+EXTENT = [0, 10, 0, 10]   # in m
+N_WAYPOINTS = 22          # start + 20 inner points + end
 N_PATHS_PER_WORLD = 1000  # Load database path
 
 
 def decode_data_tf(raw_data_dict, img_shape=(64, 64, 1), vector_shape=(22, 2), dtype=tf.uint8):
+    """
+    Transformation function to decode compressed data 
+    """
     def decode_img(img_bytes):
         img_str_tf = tf.io.decode_compressed(img_bytes, compression_type="ZLIB")
         img_tf = tf.io.decode_raw(img_str_tf, out_type=dtype)
@@ -43,11 +46,20 @@ def decode_data_tf(raw_data_dict, img_shape=(64, 64, 1), vector_shape=(22, 2), d
 
 def get_data_gen(data_df, batch_size, callback, epochs=1, img_shape=(64, 64, 1), vector_shape=(22, 2), shuffle=True):
     def preprocess(key, value):
+        """
+        Preprocess the value based on the key name
+        """
+        # Preprocess image data
         if key.endswith("_img_cmp"):
             return value
+        # Preprocess vector data
         return np.stack(value)
     
     def decoder(x):
+        """
+        Local decode function that uses the local image and vector shapes
+        for the decode_data_tf. Equivalent to itertools.partial function in this case. 
+        """
         return decode_data_tf(x, img_shape=img_shape, vector_shape=vector_shape)
 
     data_dict = {k: preprocess(k, v) for k, v in data_df.items()}
@@ -64,6 +76,9 @@ def get_data_gen(data_df, batch_size, callback, epochs=1, img_shape=(64, 64, 1),
     return data_gen
 
 def image2image_callback(data_dict):
+    """
+    Callback function to preprocess input data for image-to-image approach
+    """
     goal_imgs = data_dict["start_img_cmp"] + data_dict["end_img_cmp"]
     obst_imgs = data_dict["obst_img_cmp"]
     input_data = tf.concat((obst_imgs, goal_imgs), axis=-1)
@@ -71,11 +86,14 @@ def image2image_callback(data_dict):
     return input_data, output_data
 
 def image2image_saver(index, logs, log_dir):
+    """
+    Callback function to save results during evaluation
+    """
     batch_inputs = logs["inputs"]
     batch_outputs = logs["true_outputs"]
     batch_predictions = logs["outputs"]
     batch_size, img_w, img_h, *_ = batch_inputs.shape
-    img_shape = (img_w, img_h, 3)          # RGB image shape
+    img_shape = (img_w, img_h, 3)                                      # RGB image shape
     for i in range(batch_size):
         # Prepare plot image
         img = np.full(img_shape, 1-batch_inputs[i, :, :, 0:1], dtype=np.float32)
@@ -94,6 +112,9 @@ def image2image_saver(index, logs, log_dir):
 
 
 def get_loss_func(loss_config):
+    """
+    Helper function to get loss function from a configuration
+    """
     loss_name = loss_config.pop("name")
     loss_func = getattr(losses, loss_name, None)
     assert loss_func is not None, f"'{loss_name}' is not a valid loss function!"
@@ -113,7 +134,6 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     config_dump_path = os.path.join(log_path, "config.yaml")
     dump_yaml(exp_config, file_path=config_dump_path)
     print(f"# Experiment configuration saved at '{config_dump_path}'")
-
 
     db_path = os.environ.get("DB_PATH")
     assert db_path is not None, "No database path found! Set the path using the command 'export DB_PATH=path/to/the/db/file'."
@@ -178,6 +198,7 @@ def main(*, epochs, log_dir, batch_size, path_row_config, model_config, loss_con
     img_dump_path = os.path.join(log_path, "test_images")
     test_callbacks = [ImageSaverCallback(data_gens["test"], img_dump_path, callback=image2image_saver, data_gen_size=steps["test"])]
     denseNet.predict(data_gens["test"], callbacks=test_callbacks)
+
 
 if __name__ == "__main__":
     config_path = sys.argv[1]
