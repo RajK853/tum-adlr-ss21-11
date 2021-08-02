@@ -2,7 +2,11 @@
 This repository contains the project source code of our team ([@rajk853](https://github.com/rajk853), [@saif61](https://github.com/saif61)) for the TUM - Advanced Deep Learning for Robotics SS21 course.
 
 ## Objective
-In this project, we will investigate the Reinforcement Learning (RL) approach in the Neural Motion Planning (NMP) as proposed in [T. Jurgenson and A. Tamar, 2019](https://arxiv.org/abs/1906.00214). We will compare the results between the Supervised Learning (SL) and Reinforcement Learning approaches and tweak the expert demonstration trajectories used in the Supervised Learning setting in an attempt to produce results similar to that from the Reinforcement Learning setting 
+In this project, we will investigate the Supervised Learning (SL) approach in the Neural Motion Planning (NMP). As [T. Jurgenson and A. Tamar, 2019](https://arxiv.org/abs/1906.00214) claims that  
+>supervised learning approaches are inferior in their accuracy due to insufficient data on the boundary of the obstacles, an issue that RL methods mitigate by actively exploring the domain  
+
+So in our project, we will investigate the Image-to-Image and Image-to-Coordinate approaches for NMP using SL.
+
 
 ## Setup
 1. Install [Conda](https://docs.anaconda.com/anaconda/install/linux/)
@@ -13,11 +17,16 @@ git clone https://github.com/RajK853/tum-adlr-ss21-11.git ~/adlr
 3. Create and activate conda environment with following command  
 ```shell
 cd ~/adlr
-conda env create -f environment.yaml
+conda env create -f environment.yml
 conda activate adlr
 ```
 
 ## Usage
+
+![interactive_plot](assets/interactive_plot.gif)
+
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/RajK853/tum-adlr-ss21-11.git/HEAD?filepath=notebook%2FInteractive_Plot.ipynb)
+
 
 ### Demo plot
 > Open as an [notebook](notebook/Demo_plot.ipynb).
@@ -69,16 +78,3 @@ From each model training session, following components are logged in the `result
 4. **model.png**: `PNG` image of the model architecture graph 
 
 ---
-
-## TODOs
-- Setups to perform experiments in Google Colab + GCP Compute  
-- Setups for the Supervised Learning methods
-  - ~~Implement a `U-DenseNet` for the Image-to-Image path planning~~
-  - Implement another model for the Image-to-Points path planning
-- Setups for the Reinforcement Learning methods
-  - Create a goal-based Gym-compliant RL environment  
-  - Implement different variants of `Deep Deterministic Policy Gradient` (DDPG) algorithm
-    - DDPG
-    - DDPG+HER (Hindsight Experience Replay)
-    - DDPG-MP (Motion Planning)
-- Ideas to improve the Supervised Learning method results 
