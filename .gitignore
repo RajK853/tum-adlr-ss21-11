@@ -130,9 +130,12 @@ dmypy.json
 
 # Custom ignores
 *.pdf
-*.db
-Introduction2OMP.key\
+SingleSphere02.db
+Introduction2OMP.key/
 events.out*
-plugins\
-results\
-assets\
+plugins/
+results/
+assets/diagrams
+assets/images
+assets/videos
+notebook/DenseNet.ipynb
