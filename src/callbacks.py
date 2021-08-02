@@ -8,7 +8,6 @@ Callback = tf.keras.callbacks.Callback
 
 
 class ImageSaverCallback(Callback):
-    __slots__ = ("data_gen", "data_iter", "log_dir", "callback", "pbar", "index")
     
     def __init__(self, data_gen, log_dir, callback, data_gen_size=100):
         self.data_gen = data_gen
